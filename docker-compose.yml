@@ -19,6 +19,10 @@ services:
       # Long-lived Claude Code OAuth token from `claude setup-token` (subscription auth).
       # Set via Coolify env; gitignored here.
       - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
+      # Tell Claude we're in a sandbox so `--dangerously-skip-permissions`
+      # (what HAPI's --yolo maps to) is allowed despite running as root.
+      # Without this Claude refuses and HAPI sessions die with "exit code 1".
+      - IS_SANDBOX=1
     expose:
       - "3006"
     # Join the shared coolify network so coolify-proxy (Traefik) can route to us.
