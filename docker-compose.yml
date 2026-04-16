@@ -9,16 +9,20 @@ services:
     stdin_open: true
     environment:
       - TZ=Europe/Moscow
-      # Optional: enables HAPI's Telegram bot control. Set in .env (gitignored).
+      # HAPI listens on 0.0.0.0 so Coolify's Traefik can reach it from the docker network.
+      - HAPI_LISTEN_HOST=0.0.0.0
+      - HAPI_LISTEN_PORT=3006
+      # Public HTTPS URL (set via Coolify env; must match the FQDN assigned to this app).
+      - HAPI_PUBLIC_URL=${HAPI_PUBLIC_URL:-}
+      # Enables the HAPI Telegram bot + Mini App (set via Coolify env; gitignored here).
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+    expose:
+      - "3006"
     volumes:
       # Workspace: all git clones / work-in-progress live here
       - claude-dev-workspace:/workspace
       # Persistent auth/config for hapi, claude, gh, git
       - claude-dev-home:/root
-    # No ports exposed: HAPI dials out to relay over WireGuard+TLS.
-    # No Docker socket mounted: Claude cannot manage other containers (by design).
-    # No host paths mounted: Claude cannot touch the host filesystem.
 
 volumes:
   claude-dev-workspace:

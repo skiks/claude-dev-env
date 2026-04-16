@@ -58,9 +58,11 @@ fi
 # ------------------------------------------------------------------
 # Start HAPI hub in foreground (PID 1 via tini).
 # - On first run: auto-generates CLI_API_TOKEN -> /root/.hapi/settings.json
-# - --relay: public tunnel so phone/laptop can reach the hub from anywhere
-# - Output (token + relay URL) is visible via `docker logs claude-dev`
+# - Listens on 0.0.0.0:3006 — fronted by Coolify/Traefik on HAPI_PUBLIC_URL
+# - No --relay: we serve our own HTTPS via the Coolify reverse proxy
+#   (so the Telegram Mini App loads from our own domain, not app.hapi.run)
+# - Output (token) is visible via `docker logs claude-dev`
 # ------------------------------------------------------------------
-echo "[entrypoint] starting hapi hub with public relay (foreground)"
-echo "[entrypoint] token + relay URL will print below — grab them from 'docker logs claude-dev'"
-exec hapi hub --relay
+echo "[entrypoint] starting hapi hub on :${HAPI_LISTEN_PORT:-3006} (foreground)"
+echo "[entrypoint] token will print below — grab it from 'docker logs claude-dev'"
+exec hapi hub
