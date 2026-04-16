@@ -18,6 +18,16 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     expose:
       - "3006"
+    # Join the shared coolify network so coolify-proxy (Traefik) can route to us.
+    networks:
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.claude-dev.entrypoints=https
+      - traefik.http.routers.claude-dev.rule=Host(`hapi.proxyz.stream`)
+      - traefik.http.routers.claude-dev.tls=true
+      - traefik.http.routers.claude-dev.tls.certresolver=letsencrypt
+      - traefik.http.services.claude-dev.loadbalancer.server.port=3006
     volumes:
       # Workspace: all git clones / work-in-progress live here
       - claude-dev-workspace:/workspace
@@ -27,3 +37,7 @@ services:
 volumes:
   claude-dev-workspace:
   claude-dev-home:
+
+networks:
+  coolify:
+    external: true
