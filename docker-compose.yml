@@ -1,0 +1,23 @@
+services:
+  claude-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-dev
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    environment:
+      - TZ=Europe/Moscow
+    volumes:
+      # Workspace: all git clones / work-in-progress live here
+      - claude-dev-workspace:/workspace
+      # Persistent auth/config for hapi, claude, gh, git
+      - claude-dev-home:/root
+    # No ports exposed: HAPI dials out to relay over WireGuard+TLS.
+    # No Docker socket mounted: Claude cannot manage other containers (by design).
+    # No host paths mounted: Claude cannot touch the host filesystem.
+
+volumes:
+  claude-dev-workspace:
+  claude-dev-home:
