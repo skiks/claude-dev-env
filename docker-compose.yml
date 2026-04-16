@@ -9,6 +9,8 @@ services:
     stdin_open: true
     environment:
       - TZ=Europe/Moscow
+      # Optional: enables HAPI's Telegram bot control. Set in .env (gitignored).
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
     volumes:
       # Workspace: all git clones / work-in-progress live here
       - claude-dev-workspace:/workspace
