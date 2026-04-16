@@ -16,6 +16,9 @@ services:
       - HAPI_PUBLIC_URL=${HAPI_PUBLIC_URL:-}
       # Enables the HAPI Telegram bot + Mini App (set via Coolify env; gitignored here).
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      # Long-lived Claude Code OAuth token from `claude setup-token` (subscription auth).
+      # Set via Coolify env; gitignored here.
+      - CLAUDE_CODE_OAUTH_TOKEN=${CLAUDE_CODE_OAUTH_TOKEN:-}
     expose:
       - "3006"
     # Join the shared coolify network so coolify-proxy (Traefik) can route to us.
