@@ -25,16 +25,28 @@ services:
       - IS_SANDBOX=1
     expose:
       - "3006"
+      - "5050"
     # Join the shared coolify network so coolify-proxy (Traefik) can route to us.
     networks:
       - coolify
     labels:
       - traefik.enable=true
+      # HAPI (port 3006)
       - traefik.http.routers.claude-dev.entrypoints=https
       - traefik.http.routers.claude-dev.rule=Host(`hapi.proxyz.stream`)
       - traefik.http.routers.claude-dev.tls=true
       - traefik.http.routers.claude-dev.tls.certresolver=letsencrypt
+      - traefik.http.routers.claude-dev.service=claude-dev
       - traefik.http.services.claude-dev.loadbalancer.server.port=3006
+      # RUBRIC dashboard (port 5050) — second service on the same container
+      - traefik.http.routers.rubric.entrypoints=https
+      - traefik.http.routers.rubric.rule=Host(`rubric.proxyz.stream`)
+      - traefik.http.routers.rubric.tls=true
+      - traefik.http.routers.rubric.tls.certresolver=letsencrypt
+      - traefik.http.routers.rubric.middlewares=rubric-auth@docker
+      - traefik.http.routers.rubric.service=rubric
+      - traefik.http.services.rubric.loadbalancer.server.port=5050
+      - traefik.http.middlewares.rubric-auth.basicauth.users=admin:{SHA}g67WDnvMOvofoY6DDx899kLSLtU=
     volumes:
       # Workspace: all git clones / work-in-progress live here
       - claude-dev-workspace:/workspace

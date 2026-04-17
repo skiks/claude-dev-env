@@ -37,6 +37,38 @@ echo "  git:    $(git --version 2>/dev/null || echo missing)"
 ) &
 
 # ------------------------------------------------------------------
+# Start RUBRIC dashboard in the same container on :5050.
+# Source lives in /workspace/rubric/ (cloned from skiks/rubric — our own
+# fork, editable as a sub-project). Traefik routes rubric.proxyz.stream
+# here via labels in docker-compose.yml.
+# ------------------------------------------------------------------
+(
+  sleep 2  # give the filesystem + gh a moment to settle
+  RUBRIC_DIR=/workspace/rubric
+  SCAFFOLD=$RUBRIC_DIR/templates/scaffold
+  if [ ! -d "$RUBRIC_DIR/.git" ]; then
+    if TOKEN=$(gh auth token 2>/dev/null); then
+      echo "[entrypoint] cloning skiks/rubric into $RUBRIC_DIR"
+      git clone -q "https://oauth2:${TOKEN}@github.com/skiks/rubric.git" "$RUBRIC_DIR" 2>&1 | sed 's/^/[rubric-clone] /' || \
+        echo "[entrypoint] rubric clone failed — continuing without"
+    else
+      echo "[entrypoint] gh not authenticated; skipping rubric clone (run: docker exec -it claude-dev gh auth login)"
+    fi
+  else
+    (cd "$RUBRIC_DIR" && git pull -q 2>&1 | sed 's/^/[rubric-pull] /') || \
+      echo "[entrypoint] rubric pull skipped"
+  fi
+  if [ -f "$SCAFFOLD/server.js" ]; then
+    # Patch listen host so Traefik can reach it across docker network
+    sed -i 's/127\.0\.0\.1/0.0.0.0/' "$SCAFFOLD/server.js"
+    echo "[entrypoint] starting rubric on :5050"
+    (cd "$SCAFFOLD" && PORT=5050 SKILL_TREE_ROOT=/workspace node server.js 2>&1 | sed 's/^/[rubric] /') &
+  else
+    echo "[entrypoint] rubric scaffold not found at $SCAFFOLD — skipping"
+  fi
+) &
+
+# ------------------------------------------------------------------
 # First-time setup reminders
 # ------------------------------------------------------------------
 if [ ! -f /root/.claude/.credentials.json ] && [ ! -f /root/.config/claude-code/auth.json ]; then
