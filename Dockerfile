@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       htop \
       procps \
       tini \
+      cron \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
