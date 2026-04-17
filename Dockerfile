@@ -30,9 +30,12 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code CLI + HAPI CLI (global npm installs)
-RUN npm install -g @anthropic-ai/claude-code \
-    && npm install -g @twsxtd/hapi --registry=https://registry.npmjs.org \
+# Cache-bust arg: pass --build-arg CACHEBUST=$(date +%s) to force re-pull of latest npm packages
+ARG CACHEBUST=1
+
+# Claude Code CLI + HAPI CLI (always latest)
+RUN npm install -g @anthropic-ai/claude-code@latest \
+    && npm install -g @twsxtd/hapi@latest --registry=https://registry.npmjs.org \
     && npm cache clean --force
 
 WORKDIR /workspace
