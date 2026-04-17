@@ -21,6 +21,27 @@ echo "  hapi:   $(hapi --version 2>/dev/null || echo missing)"
 echo "  gh:     $(gh --version 2>/dev/null | head -1 || echo missing)"
 echo "  git:    $(git --version 2>/dev/null || echo missing)"
 
+# ------------------------------------------------------------------
+# Weekly auto-rebuild: every Sunday at 04:17 triggers a Coolify
+# redeploy with no-cache so claude-code and hapi stay on @latest.
+# COOLIFY_URL and COOLIFY_TOKEN must be set in the container env.
+# ------------------------------------------------------------------
+if [ -n "${COOLIFY_URL:-}" ] && [ -n "${COOLIFY_TOKEN:-}" ]; then
+  echo "[entrypoint] setting up weekly rebuild cron"
+  echo "COOLIFY_URL=${COOLIFY_URL}" > /etc/cron.d/weekly-rebuild-env
+  echo "COOLIFY_TOKEN=${COOLIFY_TOKEN}" >> /etc/cron.d/weekly-rebuild-env
+  cat > /etc/cron.d/weekly-rebuild << EOF
+SHELL=/bin/bash
+17 4 * * 0 root . /etc/cron.d/weekly-rebuild-env && curl -sf "${COOLIFY_URL}/api/v1/deploy?uuid=s8gs80kgs0g8c84k48sssosc&force=true&no_cache=true" -H "Authorization: Bearer ${COOLIFY_TOKEN}" >> /var/log/weekly-rebuild.log 2>&1
+EOF
+  chmod 0644 /etc/cron.d/weekly-rebuild
+  chmod 0600 /etc/cron.d/weekly-rebuild-env
+  cron
+  echo "[entrypoint] cron started (weekly rebuild every Sunday 04:17)"
+else
+  echo "[entrypoint] COOLIFY_URL/TOKEN not set — weekly rebuild cron skipped"
+fi
+
 # Kick off the runner AFTER the hub is up (hub is started below as PID 1).
 # The runner needs the hub's API on :3006 to register.
 (
@@ -38,12 +59,9 @@ echo "  git:    $(git --version 2>/dev/null || echo missing)"
 
 # ------------------------------------------------------------------
 # Start RUBRIC dashboard in the same container on :5050.
-# Source lives in /workspace/rubric/ (cloned from skiks/rubric — our own
-# fork, editable as a sub-project). Traefik routes rubric.proxyz.stream
-# here via labels in docker-compose.yml.
 # ------------------------------------------------------------------
 (
-  sleep 2  # give the filesystem + gh a moment to settle
+  sleep 2
   RUBRIC_DIR=/workspace/rubric
   SCAFFOLD=$RUBRIC_DIR/templates/scaffold
   if [ ! -d "$RUBRIC_DIR/.git" ]; then
@@ -52,14 +70,13 @@ echo "  git:    $(git --version 2>/dev/null || echo missing)"
       git clone -q "https://oauth2:${TOKEN}@github.com/skiks/rubric.git" "$RUBRIC_DIR" 2>&1 | sed 's/^/[rubric-clone] /' || \
         echo "[entrypoint] rubric clone failed — continuing without"
     else
-      echo "[entrypoint] gh not authenticated; skipping rubric clone (run: docker exec -it claude-dev gh auth login)"
+      echo "[entrypoint] gh not authenticated; skipping rubric clone"
     fi
   else
     (cd "$RUBRIC_DIR" && git pull -q 2>&1 | sed 's/^/[rubric-pull] /') || \
       echo "[entrypoint] rubric pull skipped"
   fi
   if [ -f "$SCAFFOLD/server.js" ]; then
-    # Patch listen host so Traefik can reach it across docker network
     sed -i 's/127\.0\.0\.1/0.0.0.0/' "$SCAFFOLD/server.js"
     echo "[entrypoint] starting rubric on :5050"
     (cd "$SCAFFOLD" && PORT=5050 SKILL_TREE_ROOT=/workspace node server.js 2>&1 | sed 's/^/[rubric] /') &
@@ -72,28 +89,23 @@ echo "  git:    $(git --version 2>/dev/null || echo missing)"
 # First-time setup reminders
 # ------------------------------------------------------------------
 if [ ! -f /root/.claude/.credentials.json ] && [ ! -f /root/.config/claude-code/auth.json ]; then
-  cat <<'EOF'
+  cat <<'SETUPEOF'
 [entrypoint] Claude Code is NOT logged in yet.
   First-time setup:
     docker exec -it claude-dev claude
     # follow the device-code flow (Claude Pro/Max)
-EOF
+SETUPEOF
 fi
 
 if ! gh auth status >/dev/null 2>&1; then
-  cat <<'EOF'
+  cat <<'SETUPEOF'
 [entrypoint] GitHub (gh) is NOT logged in yet.
     docker exec -it claude-dev gh auth login
-EOF
+SETUPEOF
 fi
 
 # ------------------------------------------------------------------
 # Start HAPI hub in foreground (PID 1 via tini).
-# - On first run: auto-generates CLI_API_TOKEN -> /root/.hapi/settings.json
-# - Listens on 0.0.0.0:3006 — fronted by Coolify/Traefik on HAPI_PUBLIC_URL
-# - No --relay: we serve our own HTTPS via the Coolify reverse proxy
-#   (so the Telegram Mini App loads from our own domain, not app.hapi.run)
-# - Output (token) is visible via `docker logs claude-dev`
 # ------------------------------------------------------------------
 echo "[entrypoint] starting hapi hub on :${HAPI_LISTEN_PORT:-3006} (foreground)"
 echo "[entrypoint] token will print below — grab it from 'docker logs claude-dev'"
