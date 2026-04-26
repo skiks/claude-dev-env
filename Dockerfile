@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       procps \
       tini \
       cron \
+      postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI
@@ -30,6 +31,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       > /etc/apt/sources.list.d/github-cli.list \
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
+
+# Playwright + Chromium for browser-based testing
+RUN npx --yes playwright install-deps chromium 2>/dev/null || true \
+    && npm install -g playwright \
+    && npx playwright install chromium
 
 # Cache-bust arg: pass --build-arg CACHEBUST=$(date +%s) to force re-pull of latest npm packages
 ARG CACHEBUST=1
@@ -46,7 +52,4 @@ RUN mkdir -p /root/.config /root/.claude /root/.ssh \
     && chmod 700 /root/.ssh
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-# tini handles PID 1 signals cleanly
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
