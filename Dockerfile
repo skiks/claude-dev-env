@@ -51,5 +51,5 @@ WORKDIR /workspace
 RUN mkdir -p /root/.config /root/.claude /root/.ssh \
     && chmod 700 /root/.ssh
 
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY --chmod=755 entrypoint.sh /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/entrypoint.sh"]
